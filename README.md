@@ -2,4 +2,4 @@ GS__PYTHON
 ----------------------------------------------------------------------------------------------------------------------------------------------
 Global solution, projeto de python
 ----------------------------------------------------------------------------------------------------------------------------------------------
-Feito por: Henrique Celso, Alan de Castro, Lucas Cortizo, Jonathan Henrique e Davis Junior
+Feito por: Henrique Celso, Jonathan Henrique e Davis Junior
