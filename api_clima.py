@@ -8,7 +8,7 @@ def pegar_Coordenadas():
     try:
         # timeout é o tempo maximo para obter a resposta
         r = requests.get('http://www.geoplugin.net/json.gp', timeout=10)
-        print(f"Status da requisição geoplugin: {r.status_code}") # Para depuração
+       
         r.raise_for_status()
         
         local = r.json()
@@ -59,12 +59,11 @@ def obter_previsao_dias(lat, long, api_key_param, num_dias_cnt=5):
     url_previsao_diaria= f"http://api.openweathermap.org/data/2.5/forecast/daily?lat={lat}&lon={long}&cnt={num_dias_cnt}&appid={api_key_param}&units=metric&lang=pt_br"
     try:
         r = requests.get(url_previsao_diaria, timeout=10)
-        print(f"Status da requisição /forecast/daily OWM: {r.status_code}") # Adicionado print de status
+       
         r.raise_for_status()
         forecast_response = r.json()
         if 'list' in forecast_response and forecast_response['list']:
-            # A mensagem agora reflete o número de dias de fato retornados pela API (controlado por 'cnt')
-            print(f"\n--- Previsão para os Próximos {len(forecast_response['list'])} Dias ---")
+            
             infoClima = []
             for i, dia_forecast in enumerate(forecast_response['list']): 
                 climaDia = {}
