@@ -3,17 +3,12 @@
 # Integrantes do Grupo:
 
 # Nome: Henrique Celso - RM: 559687
-
-# Nome: Alan de Castro - RM: 560152
-
 # Nome: Davis Junior - RM: 560723
-
-# Nome: Lucas Cortizo - RM: 559734
-
 # Nome: Jonathan Henrique - RM: 561139
 
 import csv
 import os
+import api_clima
 from datetime import datetime
 
 municipios = []
@@ -21,7 +16,6 @@ municipios = []
 def cadastrar_municipio():
     try:
         nome = input("Nome do município: ")
-
         volume_agua = float(input("Volume de água acumulado (mm): "))
         cobertura_vegetal = float(input("Percentual de cobertura vegetal (%): "))
         movimento_massa = float(input("Movimentação de massa detectada (0 a 10): "))
@@ -33,13 +27,32 @@ def cadastrar_municipio():
         if not (0 <= movimento_massa <= 10):
             print("Erro: A movimentação de massa deve estar entre 0 e 10.\n")
             return
+        coords = api_clima.pegar_Coordenadas()
+        volume_chuva_previsto = 0.0
+        probabilidade_media_chuva = 0.0
+        nome_local_api = ""
+        if coords and coords.get('lat') and coords.get('long'):
+            lat = coords['lat']
+            lon = coords['long']
+            local_info = api_clima.obter_nome_local(lat, lon, api_clima.api_key)
+            # nome local pega com base no ip da pessoa que esta usando 
+            # nao sei se é interessante deixar assim ou colocar para a pessoa digitar a cidade que ela quer
+            nome_local_api = local_info.get('nomeLocal', "")
+            previsoes = api_clima.obter_previsao_dias(lat, lon, api_clima.api_key)
+            volume_chuva_previsto = api_clima.volume_NextDays(previsoes)
+            probabilidade_media_chuva = api_clima.calcula_Probabilidade(previsoes)
+        else:
+                print("Não foi possível obter dados de previsão de chuva da API.")
 
         municipio = {
             "nome": nome,
             "volume_agua": volume_agua,
             "cobertura_vegetal": cobertura_vegetal,
             "movimento_massa": movimento_massa,
-            "data_cadastro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "data_cadastro": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "nome_local_api": nome_local_api,
+            "volume_chuva_previsto_api": volume_chuva_previsto,
+            "prob_media_chuva_api": probabilidade_media_chuva 
         }
 
         municipios.append(municipio)
@@ -51,18 +64,23 @@ def cadastrar_municipio():
 
 def calcular_risco(municipio):
     risco = 0
+    volume_previsto = municipio.get("volume_chuva_previsto_api", 0)
+    prob_chuva = municipio.get("prob_media_chuva_api", 0)
     if municipio["volume_agua"] > 100:
         risco += 1
     if municipio["cobertura_vegetal"] < 30:
         risco += 1
     if municipio["movimento_massa"] > 5:
         risco += 1
-
-    if risco == 0:
+    if volume_previsto > 50:
+        risco += 2 
+    if prob_chuva > 75:
+        risco += 1
+    if risco == 1:
         return "Baixo"
-    elif risco == 1:
-        return "Moderado"
     elif risco == 2:
+        return "Moderado"
+    elif risco == 3:
         return "Alto"
     else:
         return "Crítico"
@@ -90,6 +108,9 @@ def listar_municipios():
         print(f"Cobertura Vegetal: {m['cobertura_vegetal']}%")
         print(f"Movimento de Massa: {m['movimento_massa']}")
         print(f"Data de Cadastro: {m['data_cadastro']}")
+        print(f"  Localização da Previsão (API): {m.get('nome_local_api', '')}")
+        print(f"  Volume Chuva Previsto (API): {m.get('volume_chuva_previsto_api', 'N/A'):.2f} mm")
+        print(f"  Prob. Média Chuva (API): {m.get('prob_media_chuva_api', 'N/A'):.2f}%")
         print('-' * 40)
     print()
 
