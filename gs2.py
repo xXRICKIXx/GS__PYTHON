@@ -3,25 +3,20 @@
 # Integrantes do Grupo:
 
 # Nome: Henrique Celso - RM: 559687
-
-# Nome: Alan de Castro - RM: 560152
-
 # Nome: Davis Junior - RM: 560723
-
-# Nome: Lucas Cortizo - RM: 559734
-
 # Nome: Jonathan Henrique - RM: 561139
 
 import csv
 import os
+import api_clima
 from datetime import datetime
+
 
 municipios = []
 
 def cadastrar_municipio():
     try:
         nome = input("Nome do município: ")
-
         volume_agua = float(input("Volume de água acumulado (mm): "))
         cobertura_vegetal = float(input("Percentual de cobertura vegetal (%): "))
         movimento_massa = float(input("Movimentação de massa detectada (0 a 10): "))
