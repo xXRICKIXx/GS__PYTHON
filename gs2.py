@@ -8,8 +8,9 @@
 
 import csv
 import os
-import api_clima
 from datetime import datetime
+import api_clima
+from api_whatsapp import enviar_mensagem_whatsapp  
 
 municipios = []
 
@@ -27,22 +28,22 @@ def cadastrar_municipio():
         if not (0 <= movimento_massa <= 10):
             print("Erro: A movimentação de massa deve estar entre 0 e 10.\n")
             return
+
         coords = api_clima.pegar_Coordenadas()
         volume_chuva_previsto = 0.0
         probabilidade_media_chuva = 0.0
         nome_local_api = ""
+
         if coords and coords.get('lat') and coords.get('long'):
             lat = coords['lat']
             lon = coords['long']
             local_info = api_clima.obter_nome_local(lat, lon, api_clima.api_key)
-            # nome local pega com base no ip da pessoa que esta usando 
-            # nao sei se é interessante deixar assim ou colocar para a pessoa digitar a cidade que ela quer
             nome_local_api = local_info.get('nomeLocal', "")
             previsoes = api_clima.obter_previsao_dias(lat, lon, api_clima.api_key)
             volume_chuva_previsto = api_clima.volume_NextDays(previsoes)
             probabilidade_media_chuva = api_clima.calcula_Probabilidade(previsoes)
         else:
-                print("Não foi possível obter dados de previsão de chuva da API.")
+            print("Não foi possível obter dados de previsão de chuva da API.")
 
         municipio = {
             "nome": nome,
@@ -61,11 +62,11 @@ def cadastrar_municipio():
     except ValueError:
         print("Erro: insira apenas números válidos nos campos numéricos.\n")
 
-
 def calcular_risco(municipio):
     risco = 0
     volume_previsto = municipio.get("volume_chuva_previsto_api", 0)
     prob_chuva = municipio.get("prob_media_chuva_api", 0)
+
     if municipio["volume_agua"] > 100:
         risco += 1
     if municipio["cobertura_vegetal"] < 30:
@@ -76,7 +77,8 @@ def calcular_risco(municipio):
         risco += 2 
     if prob_chuva > 75:
         risco += 1
-    if risco == 1:
+
+    if risco <= 1:
         return "Baixo"
     elif risco == 2:
         return "Moderado"
@@ -84,7 +86,6 @@ def calcular_risco(municipio):
         return "Alto"
     else:
         return "Crítico"
-
 
 def gerar_relatorio():
     if not municipios:
@@ -94,8 +95,23 @@ def gerar_relatorio():
     for m in municipios:
         risco = calcular_risco(m)
         print(f"Município: {m['nome']} - Risco de enchente: {risco}")
-    print()
 
+        # Envia alerta via WhatsApp se risco for Alto ou Crítico
+        if risco in ["Alto", "Crítico"]:
+            mensagem = (
+                f"⚠️ Alerta de risco de enchente ⚠️\n"
+                f"Município: {m['nome']}\n"
+                f"Risco: {risco}\n"
+                f"Volume de água acumulado: {m['volume_agua']} mm\n"
+                f"Cobertura vegetal: {m['cobertura_vegetal']}%\n"
+                f"Movimentação de massa: {m['movimento_massa']}\n"
+                f"Previsão de chuva (próximos dias): {m.get('volume_chuva_previsto_api', 0):.2f} mm\n"
+                f"Probabilidade média de chuva: {m.get('prob_media_chuva_api', 0):.2f}%\n"
+                f"Data do alerta: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            enviar_mensagem_whatsapp(mensagem)
+
+    print()
 
 def listar_municipios():
     if not municipios:
@@ -109,16 +125,15 @@ def listar_municipios():
         print(f"Movimento de Massa: {m['movimento_massa']}")
         print(f"Data de Cadastro: {m['data_cadastro']}")
         print(f"  Localização da Previsão (API): {m.get('nome_local_api', '')}")
-        print(f"  Volume Chuva Previsto (API): {m.get('volume_chuva_previsto_api', 'N/A'):.2f} mm")
-        print(f"  Prob. Média Chuva (API): {m.get('prob_media_chuva_api', 'N/A'):.2f}%")
+        print(f"  Volume Chuva Previsto (API): {m.get('volume_chuva_previsto_api', 0):.2f} mm")
+        print(f"  Prob. Média Chuva (API): {m.get('prob_media_chuva_api', 0):.2f}%")
         print('-' * 40)
     print()
-
 
 def buscar_municipio():
     nome = input("Digite o nome do município: ")
     for m in municipios:
-        if m["nome"] == nome:
+        if m["nome"].lower() == nome.lower():
             print(f"\nMunicípio encontrado:")
             print(f"Nome: {m['nome']}")
             print(f"Volume de Água: {m['volume_agua']} mm")
@@ -129,21 +144,27 @@ def buscar_municipio():
             return
     print("Município não encontrado.\n")
 
-
 def salvar_dados(arquivo='dados_municipios.csv'):
     try:
         with open(arquivo, mode='w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=["nome", "volume_agua", "cobertura_vegetal", "movimento_massa", "data_cadastro"])
+            writer = csv.DictWriter(f, fieldnames=[
+                "nome", "volume_agua", "cobertura_vegetal", "movimento_massa", "data_cadastro"
+            ])
             writer.writeheader()
             for m in municipios:
-                writer.writerow(m)
+                writer.writerow({
+                    "nome": m["nome"],
+                    "volume_agua": m["volume_agua"],
+                    "cobertura_vegetal": m["cobertura_vegetal"],
+                    "movimento_massa": m["movimento_massa"],
+                    "data_cadastro": m["data_cadastro"]
+                })
         if os.path.exists(arquivo):
             print(f"Dados salvos com sucesso no arquivo: {arquivo}\n")
         else:
             print("Erro: o arquivo não foi criado.\n")
     except Exception as e:
         print(f"Erro ao salvar os dados: {e}")
-
 
 def carregar_dados(arquivo='dados_municipios.csv'):
     try:
@@ -155,14 +176,16 @@ def carregar_dados(arquivo='dados_municipios.csv'):
                     "volume_agua": float(row["volume_agua"]),
                     "cobertura_vegetal": float(row["cobertura_vegetal"]),
                     "movimento_massa": float(row["movimento_massa"]),
-                    "data_cadastro": row.get("data_cadastro", "Data desconhecida")
+                    "data_cadastro": row.get("data_cadastro", "Data desconhecida"),
+                    "nome_local_api": "",  # Pode tentar carregar depois se quiser
+                    "volume_chuva_previsto_api": 0.0,
+                    "prob_media_chuva_api": 0.0
                 })
         print("Dados carregados com sucesso!\n")
     except FileNotFoundError:
         print("Arquivo não encontrado. Nenhum dado carregado.\n")
     except Exception as e:
         print(f"Erro ao carregar os dados: {e}\n")
-
 
 def exportar_relatorio_txt(arquivo='relatorio_risco.txt'):
     if not municipios:
@@ -181,14 +204,13 @@ def exportar_relatorio_txt(arquivo='relatorio_risco.txt'):
     except Exception as e:
         print(f"Erro ao exportar relatório: {e}\n")
 
-
 def main():
     while True:
         print("MONITORAMENTO DE ENCHENTES")
         print("1. Cadastrar Município")
         print("2. Gerar Relatório de Riscos")
         print("3. Salvar Dados")
-        print("4. Carregar Dad7os")
+        print("4. Carregar Dados")
         print("5. Listar Municípios Cadastrados")
         print("6. Buscar Município por Nome")
         print("7. Exportar Relatório para TXT")
@@ -212,12 +234,11 @@ def main():
             exportar_relatorio_txt()
         elif opcao == "8":
             confirmar = input("Tem certeza que deseja sair? (s/n): ")
-            if confirmar == 's':
+            if confirmar.lower() == 's':
                 print("Encerrando aplicação...")
                 break
         else:
             print("Opção inválida. Tente novamente.\n")
-
 
 if __name__ == "__main__":
     main()
