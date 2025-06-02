@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Variáveis sensíveis carregadas de forma segura
-account_sid = os.getenv('AC5673503547f576968b241ac57a5e8267')
-auth_token = os.getenv('fa8b741f9bb90b3f053d493baa33fb85')
+account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+auth_token = os.getenv('TWILIO_ACCOUNT_SID')
 whatsapp_from = os.getenv('whatsapp:+14155238886')  
 default_destino = os.getenv('whatsapp:+5511964326385')  
 
